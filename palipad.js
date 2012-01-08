@@ -43,6 +43,33 @@ var palipad = (function() {
 	 */
 	rangy.createModule("SaveRestore",function(a,b){function l(a){var b=a.rangeInfos;for(var c=0,d=b.length,e;c<d;++c){e=b[c];if(e.collapsed){k(a.doc,e.markerId)}else{k(a.doc,e.startMarkerId);k(a.doc,e.endMarkerId)}}}function k(a,b){var c=e(b,a);if(c){c.parentNode.removeChild(c)}}function j(c,d){if(!c.restored){var f=c.rangeInfos;var h=a.getSelection(c.win);var i=[];for(var j=f.length,k=j-1,l,m;k>=0;--k){l=f[k];m=a.createRange(c.doc);if(l.collapsed){var n=e(l.markerId,c.doc);if(n){n.style.display="inline";var o=n.previousSibling;if(o&&o.nodeType==3){n.parentNode.removeChild(n);m.collapseToPoint(o,o.length)}else{m.collapseBefore(n);n.parentNode.removeChild(n)}}else{b.warn("Marker element has been removed. Cannot restore selection.")}}else{g(c.doc,m,l.startMarkerId,true);g(c.doc,m,l.endMarkerId,false)}if(j==1){m.normalizeBoundaries()}i[k]=m}if(j==1&&d&&a.features.selectionHasExtend&&f[0].backwards){h.removeAllRanges();h.addRange(i[0],true)}else{h.setRanges(i)}c.restored=true}}function i(c){c=c||window;var d=c.document;if(!a.isSelectionValid(c)){b.warn("Cannot save selection. This usually happens when the selection is collapsed and the selection document has lost focus.");return}var g=a.getSelection(c);var i=g.getAllRanges();var j=[],k,l,m;i.sort(h);for(var n=0,o=i.length;n<o;++n){m=i[n];if(m.collapsed){l=f(m,false);j.push({markerId:l.id,collapsed:true})}else{l=f(m,false);k=f(m,true);j[n]={startMarkerId:k.id,endMarkerId:l.id,collapsed:false,backwards:i.length==1&&g.isBackwards()}}}for(n=o-1;n>=0;--n){m=i[n];if(m.collapsed){m.collapseBefore(e(j[n].markerId,d))}else{m.setEndBefore(e(j[n].endMarkerId,d));m.setStartAfter(e(j[n].startMarkerId,d))}}g.setRanges(i);return{win:c,doc:d,rangeInfos:j,restored:false}}function h(a,b){return b.compareBoundaryPoints(a.START_TO_START,a)}function g(a,c,d,f){var g=e(d,a);if(g){c[f?"setStartBefore":"setEndBefore"](g);g.parentNode.removeChild(g)}else{b.warn("Marker element has been removed. Cannot restore selection.")}}function f(a,b){var e="selectionBoundary_"+ +(new Date)+"_"+(""+Math.random()).slice(2);var f;var g=c.getDocument(a.startContainer);var h=a.cloneRange();h.collapse(b);f=g.createElement("span");f.id=e;f.style.lineHeight="0";f.style.display="none";f.className="rangySelectionBoundary";f.appendChild(g.createTextNode(d));h.insertNode(f);h.detach();return f}function e(a,b){return(b||document).getElementById(a)}a.requireModules(["DomUtil","DomRange","WrappedRange"]);var c=a.dom;var d="﻿";a.saveSelection=i;a.restoreSelection=j;a.removeMarkerElement=k;a.removeMarkers=l});
 	
+	var updatedTextLength = 0;
+	var replaceMap = {};
+	
+	addReplacement("AA", "Ā");
+	addReplacement("aa", "ā");
+	addReplacement("II", "Ī");
+	addReplacement("ii", "ī");
+	addReplacement("UU", "Ū");
+	addReplacement("uu", "ū");
+	addReplacement("\"N", "Ṅ");
+	addReplacement("\"n", "ṅ");
+	addReplacement("\\.M", "Ṃ");
+	addReplacement("\\.m", "ṃ");
+	addReplacement("~N", "Ñ");
+	addReplacement("~n", "ñ");
+	addReplacement("\\.T", "Ṭ");
+	addReplacement("\\.t", "ṭ");
+	addReplacement("\\.D", "Ḍ");
+	addReplacement("\\.d", "ḍ");
+	addReplacement("\\.N", "Ṇ");
+	addReplacement("\\.n", "ṇ");
+	addReplacement("\\.L", "Ḷ");
+	addReplacement("\\.l", "ḷ");
+	
+	function addReplacement(a, b) {
+		replaceMap[a] = { regex : new RegExp(a, "g"), target : b };
+	}
 	function init(editor) {
 		$(editor).each(function(index, node) {
 			var $node = $(node);
@@ -68,44 +95,35 @@ var palipad = (function() {
 				node = focusNode;
 			}
 		}
+		updatedTextLength = 0;
 		updateNode(node);
+		//console.log("updatedTextLength: " + updatedTextLength);
 		rangy.restoreSelection(savedSel, true);
 	}
 	function updateNode(node) {
 		var $node = $(node);
 		
 		if (node.nodeType == Node.TEXT_NODE) {
-			//console.log("updateNode: " + $node.text());
-			$node.replaceWith(replaceText($node.text()));
+			var text = $node.text();
+			
+			updatedTextLength += text.length;
+			$node.replaceWith(replaceText(text));
 		} else {
 			$node.contents()
-				.each(function() { updateNode(this); })
+				.each(function() { updateNode(this, this.updatedTextLen); })
 				.end();
 		}
 	}
 	function replaceText(str) {
-		return str.replace(/AA/, "&#256;") // AA to Ā
-			.replace(/aa/g, "&#257;") // aa to ā
-			.replace(/II/g, "&#298;") // II to Ī
-			.replace(/ii/g, "&#299;") // ii to ī
-			.replace(/UU/g, "&#362;") // UU to Ū
-			.replace(/uu/g, "&#363;") // uu to ū
-			.replace(/"N/g, "&#7748;") // "N to Ṅ
-			.replace(/"n/g, "&#7749;") // "n to ṅ
-			.replace(/\.M/g, "&#7746;") // .M to Ṃ
-			.replace(/\.m/g, "&#7747;") // .m to ṃ
-			.replace(/~N/g, "&Ntilde;") // ~N to Ñ
-			.replace(/~n/g, "&ntilde;") // ~n to ñ
-			.replace(/\.T/g, "&#7788;") // .T to Ṭ
-			.replace(/\.t/g, "&#7789;") // .t to ṭ
-			.replace(/\.D/g, "&#7692;") // .D to Ḍ
-			.replace(/\.d/g, "&#7693;") // .d to ḍ
-			.replace(/\.N/g, "&#7750;") // .N to Ṇ
-			.replace(/\.n/g, "&#7751;") // .n to ṇ
-			.replace(/\.L/g, "&#7734;") // .L to Ḷ
-			.replace(/\.l/g, "&#7735;"); // .l to ḷ
+		for (var key in replaceMap) {
+			var val = replaceMap[key];
+			str = str.replace(val.regex, val.target);
+		}
+		return str;
 	}
 	return {
+		jQuery : $,
+		rangy : rangy,
 		init : init,
 		replaceText : replaceText
 	};
